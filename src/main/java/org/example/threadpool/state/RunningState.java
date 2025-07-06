@@ -26,7 +26,7 @@ public class RunningState implements ThreadPoolState {
 
     @Override
     public void shutdown() {
-        logger.info("Переход в состояние завершения работы");
+        logger.info("transitioning to state shutting down");
         threadPool.setState(new ShuttingDownState(threadPool));
     }
 

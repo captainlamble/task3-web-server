@@ -41,7 +41,7 @@ public class ShuttingDownState implements ThreadPoolState {
         boolean terminated = threadPool.areAllWorkersTerminated();
         if (terminated) {
             logger.info("transferring to state terminated");
-            threadPool.setState(new TerminatedState());
+            threadPool.setState(TerminatedState.getInstance());
         }
         return terminated;
     }
