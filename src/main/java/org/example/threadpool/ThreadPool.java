@@ -6,6 +6,7 @@ import org.example.threadpool.state.RunningState;
 import org.example.threadpool.state.ThreadPoolState;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
@@ -22,7 +23,7 @@ public class ThreadPool {
 
     public ThreadPool(int poolSize) {
         this.taskQueue = new LinkedBlockingQueue<>();
-        this.workers = new ArrayList<>(poolSize);
+        this.workers = Collections.synchronizedList(new ArrayList<>(poolSize));
         this.state = new RunningState(this);
 
         for (int i = 0; i < poolSize; i++) {
