@@ -14,12 +14,15 @@ import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class ThreadPool {
     private static final Logger logger = LogManager.getLogger(ThreadPool.class);
     private final BlockingQueue<Runnable> taskQueue;
     private final List<WorkerThread> workers;
     private ThreadPoolState state;
+    private final Lock stateLock = new ReentrantLock();
 
     public ThreadPool(int poolSize) {
         this.taskQueue = new LinkedBlockingQueue<>();
@@ -36,7 +39,12 @@ public class ThreadPool {
     }
 
     public void execute(Runnable task) {
-        state.execute(task);
+        stateLock.lock();
+        try {
+            state.execute(task);
+        } finally {
+            stateLock.unlock();
+        }
     }
 
     public <T> Future<T> submit(Callable<T> task) {
@@ -47,12 +55,23 @@ public class ThreadPool {
 
     public void shutdown() {
         logger.info("shutting down thread pool");
-        state.shutdown();
+
+        stateLock.lock();
+        try {
+            state.shutdown();
+        } finally {
+            stateLock.unlock();
+        }
 
         boolean terminated = false;
         try {
             for (int i = 0; i < 10 && !terminated; i++) {
-                terminated = state.isTerminated();
+                stateLock.lock();
+                try {
+                    terminated = state.isTerminated();
+                } finally {
+                    stateLock.unlock();
+                }
                 if (!terminated) {
                     TimeUnit.MILLISECONDS.sleep(100);
                 }
@@ -60,12 +79,16 @@ public class ThreadPool {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-
         logger.info("thread pool shutdown");
     }
 
     public void setState(ThreadPoolState state) {
-        this.state = state;
+        stateLock.lock();
+        try {
+            this.state = state;
+        } finally {
+            stateLock.unlock();
+        }
     }
 
     public BlockingQueue<Runnable> getTaskQueue() {
@@ -74,17 +97,21 @@ public class ThreadPool {
 
     public void stopWorkers() {
         logger.info("stopping workers");
-        for (WorkerThread worker : workers) {
-            worker.stopWorker();
+        synchronized (workers) {
+            for (WorkerThread worker : workers) {
+                worker.stopWorker();
+            }
         }
     }
 
     public boolean areAllWorkersTerminated() {
-        for (WorkerThread worker : workers) {
-            if (worker.isAlive()) {
-                return false;
+        synchronized (workers) {
+            for (WorkerThread worker : workers) {
+                if (worker.isAlive()) {
+                    return false;
+                }
             }
+            return true;
         }
-        return true;
     }
 }
